@@ -1,1 +1,5 @@
 utils
+*gitignore
+db.json
+package*
+server*
