@@ -75,11 +75,7 @@
       box-shadow:0 0 20px rgba(255,255,255,0.8);
       animation:spin 3.5s linear infinite;
     }
-    .circle {
-      position:absolute; width:60px; height:60px;
-      background:#fff; border-radius:50%;
-      box-shadow:0 0 20px rgba(255,255,255,1);
-    }
+    .circle { position:absolute; width:60px; height:60px; background:#fff; border-radius:50%; box-shadow:0 0 20px rgba(255,255,255,1); }
     .circle.top    { top:0;    left:50%; transform:translate(-50%,-50%); }
     .circle.bottom { bottom:0; left:50%; transform:translate(-50%,50%); }
     @keyframes spin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
@@ -107,8 +103,7 @@
     .result-wrapper { position:relative; width:360px; height:360px; }
     .orb-bg {
       position:absolute; inset:0; border-radius:50%;
-      background:radial-gradient(circle at center,
-        rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0) 70%);
+      background:radial-gradient(circle at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0) 70%);
       backdrop-filter:blur(10px);
     }
     .results {
@@ -123,6 +118,16 @@
       text-transform:uppercase; letter-spacing:.1rem;
       -webkit-text-stroke:1px #000;
     }
+
+    /* —— 3rd Fix: Responsive Game Over adjustments —— */
+    @media (max-width:600px) {
+      #game-over-screen { gap:1rem; }
+      #game-over-screen h2 { font-size:4rem; }
+      .result-wrapper { width:240px; height:240px; }
+      .results        { font-size:2rem; }
+      .restart        { font-size:1.8rem; }
+    }
+    /* —————————————————————————————————————————————— */
   </style>
 </head>
 <body>
@@ -172,7 +177,7 @@
       transparent:true,
       scale:{mode:Phaser.Scale.FIT, autoCenter:Phaser.Scale.CENTER_BOTH},
       physics:{default:'arcade', arcade:{debug:false}},
-      scene:{preload, create, update}
+      scene:{preload,create,update}
     };
     new Phaser.Game(config);
 
@@ -190,7 +195,7 @@
       const cx=cam.centerX, cy=cam.centerY;
       LANES[0]=cy-radius; LANES[1]=cy; LANES[2]=cy+radius;
 
-      // textures
+      // generate textures
       this.make.graphics({add:false})
         .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
         .fillStyle(0xffffff,1).fillCircle(50,50,20)
@@ -231,34 +236,25 @@
       }).setDepth(2).setVisible(false);
       highScore=Number(localStorage.getItem('tricky_high_score'))||0;
 
-      // generate icons
+      // generate UI icons
       const gfx=this.make.graphics({add:false});
-      // pauseIcon
-      gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12);
-      gfx.fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4)
-                              .fillRoundedRect(34,12,8,32,4);
+      gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
       gfx.generateTexture('pauseIcon',56,56);
-      // playIcon
-      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12);
-      gfx.fillStyle(0xffffff,1).fillTriangle(20,16,20,40,40,28);
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillTriangle(20,16,20,40,40,28);
       gfx.generateTexture('playIcon',56,56);
-      // muteOn
-      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12);
-      gfx.fillStyle(0xffffff,1).fillRect(16,18,8,20)
-         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32)
-         .closePath().fillPath();
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRect(16,18,8,20)
+         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32).closePath().fillPath();
       gfx.generateTexture('muteOn',56,56);
-      // muteOff
-      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12);
-      gfx.fillStyle(0xffffff,1).fillRect(16,18,8,20)
-         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32)
-         .closePath().fillPath()
-         .lineStyle(4,0xffffff,1)
-         .beginPath().moveTo(20,20).lineTo(44,44).strokePath()
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRect(16,18,8,20)
+         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32).closePath().fillPath()
+         .lineStyle(4,0xffffff,1).beginPath().moveTo(20,20).lineTo(44,44).strokePath()
          .beginPath().moveTo(44,20).lineTo(20,44).strokePath();
       gfx.generateTexture('muteOff',56,56);
 
-      // add icons
       pauseIcon=this.add.image(cam.width-40,40,'pauseIcon')
                     .setInteractive().setDepth(3).setVisible(false);
       const muteIcon=this.add.image(cam.width-100,40,'muteOn')
@@ -317,7 +313,7 @@
         }
       });
 
-      // rotate tap
+      // rotate on tap
       this.input.on('pointerdown',()=>{
         if(gameStarted&&!gameOver&&!gamePaused){
           direction*=-1;
