@@ -195,7 +195,7 @@
       const cx=cam.centerX, cy=cam.centerY;
       LANES[0]=cy-radius; LANES[1]=cy; LANES[2]=cy+radius;
 
-      // generate textures…
+      // textures
       this.make.graphics({add:false})
         .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
         .fillStyle(0xffffff,1).fillCircle(50,50,20)
@@ -212,13 +212,13 @@
         .closePath().fillPath()
         .generateTexture('point',50,50).destroy();
 
-      // orbit sprites…
+      // orbit sprites
       circle1=this.add.image(0,0,'orb'); this.physics.add.existing(circle1);
       circle1.body.setCircle(22.5,27.5,27.5);
       circle2=this.add.image(0,0,'orb'); this.physics.add.existing(circle2);
       circle2.body.setCircle(22.5,27.5,27.5);
 
-      // trail…
+      // trail
       const trail=this.add.particles('orb');
       [circle1,circle2].forEach(c=>trail.createEmitter({
         follow:c,lifespan:300,speed:0,
@@ -237,7 +237,7 @@
       }).setDepth(2).setVisible(false);
       highScore=Number(localStorage.getItem('tricky_high_score'))||0;
 
-      // icons generation…
+      // icons
       const gfx=this.make.graphics({add:false});
       gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
          .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
@@ -256,10 +256,8 @@
          .beginPath().moveTo(44,20).lineTo(20,44).strokePath();
       gfx.generateTexture('muteOff',56,56);
 
-      pauseIcon=this.add.image(cam.width-40,40,'pauseIcon')
-                    .setInteractive().setDepth(3).setVisible(false);
-      const muteIcon=this.add.image(cam.width-100,40,'muteOn')
-                    .setInteractive().setDepth(3).setVisible(false);
+      pauseIcon=this.add.image(cam.width-40,40,'pauseIcon').setInteractive().setDepth(3).setVisible(false);
+      const muteIcon=this.add.image(cam.width-100,40,'muteOn').setInteractive().setDepth(3).setVisible(false);
       pauseOverlay=document.getElementById('pause-overlay');
 
       countdownText=this.add.text(cx,cy,'',{
@@ -267,8 +265,8 @@
         color:'#fff',stroke:'#000',strokeThickness:6
       }).setOrigin(0.5).setDepth(5).setVisible(false);
 
-      // counter-scale HUD for zoom=1.05
-      [scoreText,pauseIcon,muteIcon,countdownText].forEach(el=>el.setScale(1/1.05));
+      // counter-scale HUD for zoom=1.02
+      [scoreText,pauseIcon,muteIcon,countdownText].forEach(el=>el.setScale(1/1.02));
 
       // SFX
       sfx.explode    = this.sound.add('explode');
@@ -279,35 +277,35 @@
       sfx.pauseWhoosh= this.sound.add('pauseWhoosh');
 
       // mute toggle
-      muteIcon.on('pointerdown',()=> {
-        isMuted = !isMuted;
-        this.sound.mute = isMuted;
+      muteIcon.on('pointerdown',()=>{
+        isMuted=!isMuted;
+        this.sound.mute=isMuted;
         muteIcon.setTexture(isMuted?'muteOff':'muteOn');
-        if (!isMuted) sfx.uiClick.play();
+        if(!isMuted) sfx.uiClick.play();
       });
 
       // pause/play toggle
-      pauseIcon.on('pointerdown',(_,x,y,e) => {
+      pauseIcon.on('pointerdown',(_,x,y,e)=>{
         e.stopPropagation();
-        if (!gameStarted || gameOver) return;
-        if (!gamePaused) {
-          gamePaused = true;
+        if(!gameStarted||gameOver) return;
+        if(!gamePaused){
+          gamePaused=true;
           pauseIcon.setTexture('playIcon');
           sfx.pauseWhoosh.play();
           this.physics.pause();
           pauseOverlay.style.display='flex';
         } else {
           sfx.pauseWhoosh.play();
-          let count = 3;
+          let count=3;
           countdownText.setText(count).setVisible(true);
           this.time.addEvent({
             delay:1000, repeat:2,
-            callback: ()=> {
+            callback: ()=>{
               count--;
-              if (count>0) countdownText.setText(count);
+              if(count>0) countdownText.setText(count);
               else {
                 countdownText.setVisible(false);
-                gamePaused = false;
+                gamePaused=false;
                 pauseIcon.setTexture('pauseIcon');
                 this.physics.resume();
                 pauseOverlay.style.display='none';
@@ -318,9 +316,9 @@
       });
 
       // rotate on tap
-      this.input.on('pointerdown', ()=> {
-        if (gameStarted && !gameOver && !gamePaused) {
-          direction *= -1;
+      this.input.on('pointerdown',()=>{
+        if(gameStarted&&!gameOver&&!gamePaused){
+          direction*=-1;
           sfx.move.play();
           this.tweens.add({
             targets:[circle1,circle2],
@@ -339,10 +337,10 @@
       // speed ramp
       this.time.addEvent({
         delay:1000, loop:true,
-        callback: ()=> {
-          if (gameStarted && !gameOver && !gamePaused) {
-            if (speed>1.5) speed += 0.006;
-            else if (speed>=1.2) speed += 0.0015;
+        callback: ()=>{
+          if(gameStarted&&!gameOver&&!gamePaused){
+            if(speed>1.5) speed+=0.006;
+            else if(speed>=1.2) speed+=0.0015;
           }
         }
       });
@@ -350,99 +348,92 @@
       // spawn scheduler
       const scene=this;
       function getSpawnInterval(){
-        const t = Phaser.Math.Clamp((speed-baseSpeed)/(maxSpeed-baseSpeed),0,1);
+        const t=Phaser.Math.Clamp((speed-baseSpeed)/(maxSpeed-baseSpeed),0,1);
         return Phaser.Math.Linear(1500,500,t);
       }
       function scheduleSpawn(){
-        scene.time.delayedCall(getSpawnInterval(), ()=> {
-          if (gameStarted && !gameOver && !gamePaused)
-            spawnObjects.call(scene);
+        scene.time.delayedCall(getSpawnInterval(),()=>{
+          if(gameStarted&&!gameOver&&!gamePaused) spawnObjects.call(scene);
           scheduleSpawn();
         },[],scene);
       }
 
       // START button
-      document.getElementById('startBtn').addEventListener('click', ()=> {
+      document.getElementById('startBtn').addEventListener('click',()=>{
         sfx.uiClick.play();
         document.getElementById('start-screen').style.display='none';
-        gameStarted = true;
+        gameStarted=true;
         document.querySelector('canvas').style.visibility='visible';
         scoreText.setVisible(true);
         pauseIcon.setVisible(true);
         muteIcon.setVisible(true);
 
-        cam.setZoom(1.05);
+        cam.setZoom(1.02);
         scheduleSpawn();
       });
 
       // RESTART
-      document.getElementById('game-over-screen').addEventListener('pointerdown', ()=> {
-        sfx.uiClick.play();
-        location.reload();
+      document.getElementById('game-over-screen').addEventListener('pointerdown',()=>{
+        sfx.uiClick.play(); location.reload();
       });
     }
 
     function update(){
-      if (!gameStarted || gameOver || gamePaused) return;
-      angle += 0.05 * direction;
-      const o1 = Phaser.Math.Vector2.RIGHT.clone().rotate(angle).scale(radius);
-      const o2 = Phaser.Math.Vector2.RIGHT.clone().rotate(angle+Math.PI).scale(radius);
-      circle1.setPosition(this.cameras.main.centerX+o1.x, this.cameras.main.centerY+o1.y);
-      circle2.setPosition(this.cameras.main.centerX+o2.x, this.cameras.main.centerY+o2.y);
+      if(!gameStarted||gameOver||gamePaused) return;
+      angle+=0.05*direction;
+      const o1=Phaser.Math.Vector2.RIGHT.clone().rotate(angle).scale(radius);
+      const o2=Phaser.Math.Vector2.RIGHT.clone().rotate(angle+Math.PI).scale(radius);
+      circle1.setPosition(this.cameras.main.centerX+o1.x,this.cameras.main.centerY+o1.y);
+      circle2.setPosition(this.cameras.main.centerX+o2.x,this.cameras.main.centerY+o2.y);
       obstacles.children.iterate(o=>o.x-=speed);
       points.children.iterate(p=>p.x-=speed);
     }
 
     function spawnObjects(){
-      const y = Phaser.Math.RND.pick(LANES);
-      const fromLeft = Phaser.Math.Between(0,1)===0;
-      const x = fromLeft ? -50 : this.cameras.main.width+50;
-      const vx = (fromLeft?speed:-speed)*60;
-      if (Phaser.Math.Between(1,100)<=35){
+      const y=Phaser.Math.RND.pick(LANES);
+      const fromLeft=Phaser.Math.Between(0,1)===0;
+      const x=fromLeft?-50:this.cameras.main.width+50;
+      const vx=(fromLeft?speed:-speed)*60;
+      if(Phaser.Math.Between(1,100)<=35){
         this.add.image(x,y,'pointGlow').setDepth(1).setBlendMode('ADD');
-        const p = this.physics.add.image(x,y,'point').setDepth(2);
+        const p=this.physics.add.image(x,y,'point').setDepth(2);
         p.body.setSize(50,50).setOffset(-25,-25).setVelocityX(vx);
         points.add(p);
       } else {
-        const o = this.physics.add.image(x,y,'obstacle').setDepth(1);
+        const o=this.physics.add.image(x,y,'obstacle').setDepth(1);
         o.body.setSize(50,50).setOffset(-25,-25).setImmovable(true).setVelocityX(vx);
         obstacles.add(o);
       }
     }
 
     function triggerGameOver(){
-      if (gameOver) return;
-      gameOver = true;
+      if(gameOver) return;
+      gameOver=true;
       [circle1,circle2].forEach(c=>{
         const px=c.x, py=c.y; c.destroy();
         this.add.particles('orb').createEmitter({
-          x:px,y:py, speed:{min:150,max:350},
-          angle:{min:0,max:360}, scale:{start:0.8,end:0},
-          lifespan:500, blendMode:'ADD', quantity:8
+          x:px,y:py,speed:{min:150,max:350},
+          angle:{min:0,max:360},scale:{start:0.8,end:0},
+          lifespan:500,blendMode:'ADD',quantity:8
         });
       });
       sfx.explode.play();
-      this.time.delayedCall(700, ()=> {
+      this.time.delayedCall(700,()=>{
         this.physics.pause();
         document.querySelector('canvas').style.visibility='hidden';
-        document.getElementById('finalScore').innerText = score;
-        if(score>highScore){
-          highScore = score;
-          sfx.newBest.play();
-        }
-        document.getElementById('bestScore').innerText = highScore;
-        document.getElementById('game-over-screen').style.display = 'flex';
+        document.getElementById('finalScore').innerText=score;
+        if(score>highScore){ highScore=score; sfx.newBest.play(); }
+        document.getElementById('bestScore').innerText=highScore;
+        document.getElementById('game-over-screen').style.display='flex';
         localStorage.setItem('tricky_high_score', highScore);
       });
     }
 
     function collectPoint(_,pt){
-      pt.destroy();
-      score++;
-      sfx.point.play();
+      pt.destroy(); score++; sfx.point.play();
       scoreText.setText('Score: '+score);
       this.tweens.add({
-        targets: scoreText,
+        targets:scoreText,
         scaleX:1.1, scaleY:1.1,
         yoyo:true, duration:80, ease:'Sine.easeOut'
       });
