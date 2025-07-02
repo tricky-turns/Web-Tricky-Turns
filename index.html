@@ -209,7 +209,7 @@
       const cx = cam.centerX, cy = cam.centerY;
       LANES[0] = cy - radius; LANES[1] = cy; LANES[2] = cy + radius;
 
-      // textures
+      // textures…
       this.make.graphics({ add: false })
         .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
         .fillStyle(0xffffff,1).fillCircle(50,50,20)
@@ -226,13 +226,13 @@
         .closePath().fillPath()
         .generateTexture('point',50,50).destroy();
 
-      // orbit sprites
+      // orbit sprites…
       circle1 = this.add.image(0,0,'orb'); this.physics.add.existing(circle1);
       circle1.body.setCircle(22.5,27.5,27.5);
       circle2 = this.add.image(0,0,'orb'); this.physics.add.existing(circle2);
       circle2.body.setCircle(22.5,27.5,27.5);
 
-      // trail
+      // trail…
       const trail = this.add.particles('orb');
       [circle1,circle2].forEach(c=>trail.createEmitter({
         follow:c, lifespan:300, speed:0,
@@ -242,11 +242,13 @@
 
       obstacles = this.physics.add.group();
       points    = this.physics.add.group();
-      scoreText = this.add.text(16,16,'Score: 0',{fontFamily:'Poppins',fontSize:'36px',color:'#fff',stroke:'#000',strokeThickness:4})
-                        .setDepth(2).setVisible(false);
+      scoreText = this.add.text(16,16,'Score: 0',{
+                    fontFamily:'Poppins',fontSize:'36px',
+                    color:'#fff',stroke:'#000',strokeThickness:4
+                  }).setDepth(2).setVisible(false);
       highScore = Number(localStorage.getItem('tricky_high_score'))||0;
 
-      // generate icons
+      // generate icons…
       const gfx = this.make.graphics({ add: false });
       gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
          .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
@@ -269,10 +271,12 @@
       const muteIcon = this.add.image(cam.width-100,40,'muteOn').setInteractive().setDepth(3).setVisible(false);
       pauseOverlay = document.getElementById('pause-overlay');
 
-      countdownText = this.add.text(cx,cy,'',{fontFamily:'Poppins',fontSize:'96px',color:'#fff',stroke:'#000',strokeThickness:6})
-                          .setOrigin(0.5).setDepth(5).setVisible(false);
+      countdownText = this.add.text(cx,cy,'',{
+                        fontFamily:'Poppins',fontSize:'96px',
+                        color:'#fff',stroke:'#000',strokeThickness:6
+                      }).setOrigin(0.5).setDepth(5).setVisible(false);
 
-      // SFX
+      // SFX…
       sfx.explode    = this.sound.add('explode');
       sfx.move       = this.sound.add('move');
       sfx.point      = this.sound.add('point');
@@ -280,7 +284,7 @@
       sfx.uiClick    = this.sound.add('uiClick');
       sfx.pauseWhoosh= this.sound.add('pauseWhoosh');
 
-      // mute toggle
+      // mute toggle…
       muteIcon.on('pointerdown',()=>{
         isMuted = !isMuted;
         this.sound.mute = isMuted;
@@ -288,7 +292,7 @@
         if(!isMuted) sfx.uiClick.play();
       });
 
-      // pause/play
+      // pause/play…
       pauseIcon.on('pointerdown',(_,x,y,e)=>{
         e.stopPropagation();
         if(!gameStarted||gameOver) return;
@@ -319,7 +323,7 @@
         }
       });
 
-      // rotate tap
+      // rotate tap…
       this.input.on('pointerdown',()=>{
         if(gameStarted&&!gameOver&&!gamePaused){
           direction*=-1; sfx.move.play();
@@ -327,13 +331,13 @@
         }
       });
 
-      // collisions
+      // collisions…
       this.physics.add.overlap(circle1,obstacles,triggerGameOver,null,this);
       this.physics.add.overlap(circle2,obstacles,triggerGameOver,null,this);
       this.physics.add.overlap(circle1,points,collectPoint,null,this);
       this.physics.add.overlap(circle2,points,collectPoint,null,this);
 
-      // speed ramp
+      // speed ramp…
       this.time.addEvent({delay:1000,loop:true,callback:()=>{
         if(gameStarted&&!gameOver&&!gamePaused){
           if(speed>1.5) speed+=0.006;
@@ -341,7 +345,7 @@
         }
       }});
 
-      // spawn scheduler
+      // spawn scheduler…
       const scene=this;
       function getSpawnInterval(){
         const t=Phaser.Math.Clamp((speed-baseSpeed)/(maxSpeed-baseSpeed),0,1);
@@ -354,7 +358,7 @@
         },[],scene);
       }
 
-      // start
+      // START: apply gameplay zoom here as Fix #2
       document.getElementById('startBtn').addEventListener('click',()=>{
         sfx.uiClick.play();
         document.getElementById('start-screen').style.display='none';
@@ -363,10 +367,11 @@
         scoreText.setVisible(true);
         pauseIcon.setVisible(true);
         muteIcon.setVisible(true);
+        this.cameras.main.setZoom(1.1); // ← Fix #2: zoom in the gameplay view
         scheduleSpawn();
       });
 
-      // restart
+      // restart…
       document.getElementById('game-over-screen').addEventListener('pointerdown',()=>{
         sfx.uiClick.play(); location.reload();
       });
