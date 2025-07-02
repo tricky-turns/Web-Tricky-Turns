@@ -7,7 +7,7 @@
 
   <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
-  <script>Pi.init({ version: "2.0", sandbox: true });</script>
+  <script> Pi.init({ version: "2.0", sandbox: true }); </script>
 
   <!-- Phaser 3 -->
   <script src="https://cdn.jsdelivr.net/npm/phaser@3.55.2/dist/phaser.min.js"></script>
@@ -19,7 +19,7 @@
     html, body { width:100%; height:100%; overflow:hidden }
     body {
       font-family:'Poppins',sans-serif;
-      background: linear-gradient(to bottom,#3199E4 0%,#58C0F2 100%);
+      background: linear-gradient(to bottom, #3199E4 0%, #58C0F2 100%);
       position:relative;
     }
     canvas { display:block; margin:0 auto; visibility:hidden; z-index:1 }
@@ -28,8 +28,11 @@
     .bg-cloud, .start-cloud {
       position:absolute;
       background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><path d='M20,35 C20,25 35,20 45,25 C50,15 65,15 70,25 C85,25 90,35 80,45 C90,45 95,55 85,60 C75,65 55,60 50,50 C40,60 25,60 20,50 C10,50 5,40 20,35 Z' fill='%23FFFFFF'/></svg>");
-      background-size:contain; filter:blur(6px); opacity:.8;
-      animation:drift linear infinite; pointer-events:none;
+      background-size:contain;
+      filter:blur(6px);
+      opacity:.8;
+      animation:drift linear infinite;
+      pointer-events:none;
     }
     .bg-cloud.one,   .start-cloud.one   { width:260px; height:90px;  top:12%;  left:10%;   animation-duration:40s; }
     .bg-cloud.two,   .start-cloud.two   { width:200px; height:70px;  top:8%;   right:12%;  animation-duration:50s; }
@@ -177,7 +180,7 @@
     const SERVER_URL = 'https://dc0f-96-234-46-32.ngrok-free.app';
     let piToken, piUserId, piUsername;
 
-    // Authenticate & fetch profile in one go:
+    // Authenticate + fetch profile in one shot:
     Pi.authenticate(['username'])
       .then(auth => {
         piToken    = auth.accessToken;
@@ -199,7 +202,7 @@
     let scoreText,pauseIcon,pauseOverlay,countdownText;
     let sfx={}, isMuted=false;
 
-    // Game config
+    // Phaser config
     const config = {
       type: Phaser.AUTO,
       transparent: true,
@@ -209,18 +212,17 @@
     };
     let gameInstance;
     function startGame() {
-      if (!gameInstance) {
-        gameInstance = new Phaser.Game(config);
-      }
+      if (!gameInstance) gameInstance = new Phaser.Game(config);
     }
 
-    // Single Start-button handler
+    // Start button
     document.getElementById('startBtn').onclick = () => {
       document.getElementById('start-screen').style.display = 'none';
       startGame();
     };
 
-    // Phaser scene:
+    // ---- Phaser Scene ----
+
     function preload() {
       this.load.audio('explode','assets/explode.wav');
       this.load.audio('move','assets/move.wav');
@@ -233,11 +235,85 @@
     function create() {
       const cam = this.cameras.main;
       const cx = cam.centerX, cy = cam.centerY;
-      LANES[0]=cy-radius; LANES[1]=cy; LANES[2]=cy+radius;
+      LANES[0] = cy - radius; LANES[1] = cy; LANES[2] = cy + radius;
 
-      // ... generate textures, sprites, particles, groups ...
+      // Textures
+      this.make.graphics({add:false})
+        .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
+        .fillStyle(0xffffff,1).fillCircle(50,50,20)
+        .generateTexture('orb',100,100).destroy();
+      this.make.graphics({add:false})
+        .fillStyle(0x0D1B2A,1).fillRoundedRect(0,0,50,50,8)
+        .generateTexture('obstacle',50,50).destroy();
+      this.make.graphics({add:false})
+        .fillStyle(0xffffff,0.25).fillCircle(40,40,40)
+        .generateTexture('pointGlow',80,80).destroy();
+      this.make.graphics({add:false})
+        .fillStyle(0xffffff,1)
+        .beginPath().moveTo(25,0).lineTo(50,25).lineTo(25,50).lineTo(0,25)
+        .closePath().fillPath()
+        .generateTexture('point',50,50).destroy();
 
-      // HUD & icons (pause, mute) as before...
+      // Orbit sprites
+      circle1 = this.add.image(0,0,'orb'); this.physics.add.existing(circle1);
+      circle1.body.setCircle(22.5,27.5,27.5);
+      circle2 = this.add.image(0,0,'orb'); this.physics.add.existing(circle2);
+      circle2.body.setCircle(22.5,27.5,27.5);
+
+      // Trail
+      const trail = this.add.particles('orb');
+      [circle1,circle2].forEach(c=>trail.createEmitter({
+        follow:c, lifespan:300, speed:0,
+        scale:{start:0.3,end:0}, alpha:{start:0.4,end:0},
+        frequency:50, blendMode:'ADD'
+      }));
+
+      obstacles = this.physics.add.group();
+      points    = this.physics.add.group();
+
+      // HUD
+      scoreText = this.add.text(16,16,'Score: 0',{
+        fontFamily:'Poppins',fontSize:'36px',color:'#fff',
+        stroke:'#000',strokeThickness:4
+      }).setDepth(2).setVisible(false);
+      highScore = Number(localStorage.getItem('tricky_high_score'))||0;
+
+      // Icons
+      const gfx = this.make.graphics({add:false});
+      // pauseIcon
+      gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
+      gfx.generateTexture('pauseIcon',56,56);
+      // playIcon
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillTriangle(20,16,20,40,40,28);
+      gfx.generateTexture('playIcon',56,56);
+      // muteOn
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRect(16,18,8,20)
+         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32)
+         .closePath().fillPath();
+      gfx.generateTexture('muteOn',56,56);
+      // muteOff
+      gfx.clear().fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
+         .fillStyle(0xffffff,1).fillRect(16,18,8,20)
+         .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32)
+         .closePath().fillPath()
+         .lineStyle(4,0xffffff,1).beginPath().moveTo(20,20).lineTo(44,44).strokePath()
+         .beginPath().moveTo(44,20).lineTo(20,44).strokePath();
+      gfx.generateTexture('muteOff',56,56);
+
+      pauseIcon = this.add.image(cam.width-40,40,'pauseIcon')
+        .setInteractive().setDepth(3).setVisible(false);
+      const muteIcon = this.add.image(cam.width-100,40,'muteOn')
+        .setInteractive().setDepth(3).setVisible(false);
+
+      pauseOverlay = document.getElementById('pause-overlay');
+
+      countdownText = this.add.text(cx,cy,'',{
+        fontFamily:'Poppins',fontSize:'96px',color:'#fff',
+        stroke:'#000',strokeThickness:6
+      }).setOrigin(0.5).setDepth(5).setVisible(false);
 
       // SFX
       sfx.explode    = this.sound.add('explode');
@@ -247,29 +323,90 @@
       sfx.uiClick    = this.sound.add('uiClick');
       sfx.pauseWhoosh= this.sound.add('pauseWhoosh');
 
-      // Mute & pause toggles as before...
+      // Mute toggle
+      muteIcon.on('pointerdown', ()=>{
+        isMuted = !isMuted;
+        this.sound.mute = isMuted;
+        muteIcon.setTexture(isMuted?'muteOff':'muteOn');
+        if (!isMuted) sfx.uiClick.play();
+      });
 
-      // Collisions, speed ramp as before...
+      // Pause toggle
+      pauseIcon.on('pointerdown', (_,x,y,e)=>{
+        e.stopPropagation();
+        if (!gameStarted||gameOver) return;
+        if (!gamePaused) {
+          gamePaused = true;
+          pauseIcon.setTexture('playIcon');
+          sfx.pauseWhoosh.play();
+          this.physics.pause();
+          pauseOverlay.style.display = 'flex';
+        } else {
+          sfx.pauseWhoosh.play();
+          let cnt = 3;
+          countdownText.setText(cnt).setVisible(true);
+          this.time.addEvent({
+            delay:1000, repeat:2, callback: ()=>{
+              cnt--;
+              if (cnt>0) countdownText.setText(cnt);
+              else {
+                countdownText.setVisible(false);
+                gamePaused = false;
+                pauseIcon.setTexture('pauseIcon');
+                this.physics.resume();
+                pauseOverlay.style.display = 'none';
+              }
+            }
+          });
+        }
+      });
 
-      // Spawn scheduler helper:
+      // Rotate on tap
+      this.input.on('pointerdown', ()=>{
+        if (gameStarted && !gameOver && !gamePaused) {
+          direction *= -1;
+          sfx.move.play();
+          this.tweens.add({
+            targets:[circle1,circle2],
+            scaleX:1.15, scaleY:1.15,
+            yoyo:true, duration:100, ease:'Quad.easeInOut'
+          });
+        }
+      });
+
+      // Collisions
+      this.physics.add.overlap(circle1, obstacles, triggerGameOver, null, this);
+      this.physics.add.overlap(circle2, obstacles, triggerGameOver, null, this);
+      this.physics.add.overlap(circle1, points,    collectPoint,    null, this);
+      this.physics.add.overlap(circle2, points,    collectPoint,    null, this);
+
+      // Speed ramp
+      this.time.addEvent({
+        delay:1000, loop:true, callback: ()=>{
+          if (gameStarted && !gameOver && !gamePaused) {
+            if (speed>1.5) speed+=0.006;
+            else if (speed>=1.2) speed+=0.0015;
+          }
+        }
+      });
+
+      // Spawn scheduler
       const scene = this;
       function getSpawnInterval(){
         const t = Phaser.Math.Clamp((speed-baseSpeed)/(maxSpeed-baseSpeed),0,1);
         return Phaser.Math.Linear(1500,500,t);
       }
       function scheduleSpawn(){
-        scene.time.delayedCall(getSpawnInterval(),()=>{
-          if(gameStarted && !gameOver && !gamePaused) spawnObjects.call(scene);
+        scene.time.delayedCall(getSpawnInterval(), ()=>{
+          if (gameStarted && !gameOver && !gamePaused) spawnObjects.call(scene);
           scheduleSpawn();
-        },[],scene);
+        }, [], scene);
       }
 
-      // **Start the actual game**:
-      // 1) show canvas & HUD
+      // *** Start the game immediately in create() ***
       document.querySelector('canvas').style.visibility = 'visible';
       scoreText.setVisible(true);
       pauseIcon.setVisible(true);
-      // 2) flag running & begin spawn loop
       gameStarted = true;
       scheduleSpawn();
     }
@@ -277,23 +414,48 @@
     function update() {
       if (!gameStarted || gameOver || gamePaused) return;
       angle += 0.05 * direction;
-      // ... update orb positions & move obstacles/points ...
+      const o1 = Phaser.Math.Vector2.RIGHT.clone().rotate(angle).scale(radius);
+      const o2 = Phaser.Math.Vector2.RIGHT.clone().rotate(angle+Math.PI).scale(radius);
+      circle1.setPosition(this.cameras.main.centerX + o1.x, this.cameras.main.centerY + o1.y);
+      circle2.setPosition(this.cameras.main.centerX + o2.x, this.cameras.main.centerY + o2.y);
+      obstacles.children.iterate(o=>o.x -= speed);
+      points.children.iterate(p=>p.x -= speed);
     }
 
     function spawnObjects(){
-      // ... identical spawning logic ...
+      const y = Phaser.Math.RND.pick(LANES);
+      const fromLeft = Phaser.Math.Between(0,1)===0;
+      const x = fromLeft ? -50 : this.cameras.main.width + 50;
+      const vx = (fromLeft?speed:-speed)*60;
+      if (Phaser.Math.Between(1,100)<=35) {
+        this.add.image(x,y,'pointGlow').setDepth(1).setBlendMode('ADD');
+        const p = this.physics.add.image(x,y,'point').setDepth(2);
+        p.body.setSize(50,50).setOffset(-25,-25).setVelocityX(vx);
+        points.add(p);
+      } else {
+        const o = this.physics.add.image(x,y,'obstacle').setDepth(1);
+        o.body.setSize(50,50).setOffset(-25,-25).setImmovable(true).setVelocityX(vx);
+        obstacles.add(o);
+      }
     }
 
-    function triggerGameOver() {
+    function triggerGameOver(){
       if (gameOver) return;
       gameOver = true;
-      // ... particle explosion ...
-
-      this.time.delayedCall(700,()=>{
+      [circle1,circle2].forEach(c=>{
+        const px=c.x, py=c.y; c.destroy();
+        this.add.particles('orb').createEmitter({
+          x:px, y:py, speed:{min:150,max:350},
+          angle:{min:0,max:360}, scale:{start:0.8,end:0},
+          lifespan:500, blendMode:'ADD', quantity:8
+        });
+      });
+      sfx.explode.play();
+      this.time.delayedCall(700, ()=>{
         this.physics.pause();
         document.querySelector('canvas').style.visibility='hidden';
         document.getElementById('finalScore').innerText = score;
-        if (score > highScore) {
+        if (score>highScore) {
           highScore = score;
           sfx.newBest.play();
         }
@@ -301,8 +463,8 @@
         document.getElementById('game-over-screen').style.display = 'flex';
         localStorage.setItem('tricky_high_score', highScore);
 
-        // submit & fetch leaderboard
-        fetch(`${SERVER_URL}/api/submit`,{
+        // Submit & fetch leaderboard
+        fetch(`${SERVER_URL}/api/submit`, {
           method:'POST',
           headers:{
             'Content-Type':'application/json',
@@ -314,18 +476,18 @@
         .then(r=>r.json())
         .then(list=>{
           const ol = document.getElementById('lb-list');
-          ol.innerHTML='';
+          ol.innerHTML = '';
           list.forEach(item=>{
             const li=document.createElement('li');
             li.textContent = `${item.username}: ${item.score}`;
             ol.appendChild(li);
           });
-          document.getElementById('leaderboard').style.display='block';
+          document.getElementById('leaderboard').style.display = 'block';
         });
       });
     }
 
-    function collectPoint(_,pt) {
+    function collectPoint(_,pt){
       pt.destroy(); score++; sfx.point.play();
       scoreText.setText('Score: '+score);
       this.tweens.add({
@@ -334,8 +496,8 @@
       });
     }
 
-    document.getElementById('lb-close').onclick = ()=>{
-      document.getElementById('leaderboard').style.display='none';
+    document.getElementById('lb-close').onclick = () => {
+      document.getElementById('leaderboard').style.display = 'none';
     };
   </script>
 </body>
