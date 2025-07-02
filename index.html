@@ -1,12 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <!-- Pi SDK (must load before any Pi.* calls) -->
+  <!-- Pi SDK -->
   <script src="https://sdk.minepi.com/pi-sdk.js"></script>
   <script>Pi.init({ version: "2.0", sandbox: true });</script>
 
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
+
   <title>Tricky Turns</title>
 
   <!-- Phaser 3 -->
@@ -24,7 +25,7 @@
     }
     canvas { display:block; margin:0 auto; visibility:hidden; z-index:1; }
 
-    /* clouds */
+    /* Clouds */
     .bg-cloud, .start-cloud {
       position:absolute;
       background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><path d='M20,35 C20,25 35,20 45,25 C50,15 65,15 70,25 C85,25 90,35 80,45 C90,45 95,55 85,60 C75,65 55,60 50,50 C40,60 25,60 20,50 C10,50 5,40 20,35 Z' fill='%23FFFFFF'/></svg>");
@@ -40,7 +41,7 @@
     .bg-cloud.four,  .start-cloud.four  { width:280px; height:95px;  bottom:18%;right:22%;  animation-duration:55s; }
     @keyframes drift { from{transform:translateX(0);} to{transform:translateX(-150vw);} }
 
-    /* Start screen */
+    /* Start Screen */
     #start-screen {
       position:absolute; inset:0;
       display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7rem;
@@ -48,7 +49,8 @@
     }
     #start-screen h1 {
       color:#fff; font-size:6rem; font-weight:700;
-      text-transform:uppercase; letter-spacing:.1rem; text-align:center; line-height:1.1;
+      text-transform:uppercase; letter-spacing:.1rem;
+      text-align:center; line-height:1.1;
     }
     .start-button {
       background:#3EAFF6; color:#fff;
@@ -56,11 +58,11 @@
       padding:1rem 3rem; border:none; border-radius:2rem;
       box-shadow:0 8px 24px rgba(0,0,0,0.2);
       cursor:pointer;
+      position:relative; z-index:10;
     }
     .start-button:disabled { opacity:.5; cursor:not-allowed; }
     .start-button:hover:enabled { background:#318EE6; }
 
-    /* Orbit loader */
     .orbit { position:relative; width:240px; height:240px; }
     .ring {
       position:absolute; width:100%; height:100%;
@@ -76,7 +78,7 @@
     .circle.bottom { bottom:0; left:50%; transform:translate(-50%,50%); }
     @keyframes spin { from{transform:rotate(0);} to{transform:rotate(360deg);} }
 
-    /* Pause overlay */
+    /* Pause Overlay */
     #pause-overlay {
       position:absolute; inset:0; display:none;
       align-items:center; justify-content:center;
@@ -88,7 +90,7 @@
       -webkit-text-stroke:1px #000;
     }
 
-    /* Game Over screen */
+    /* Game Over Screen */
     #game-over-screen {
       position:absolute; inset:0; display:none;
       flex-direction:column; align-items:center; justify-content:center; gap:1.5rem;
@@ -112,11 +114,13 @@
       -webkit-text-stroke:2px #000; text-align:center; line-height:1.3;
     }
     .restart {
-      font-family:'Poppins',sans-serif; color:rgba(255,255,255,0.8); font-size:2.4rem; font-weight:700;
-      text-transform:uppercase; letter-spacing:.1rem; -webkit-text-stroke:1px #000;
+      font-family:'Poppins',sans-serif; color:rgba(255,255,255,0.8);
+      font-size:2.4rem; font-weight:700;
+      text-transform:uppercase; letter-spacing:.1rem;
+      -webkit-text-stroke:1px #000;
     }
 
-    /* Leaderboard panel */
+    /* Leaderboard Panel */
     #leaderboard {
       position:absolute; top:10%; left:50%;
       transform:translateX(-50%);
@@ -180,23 +184,30 @@
   </div>
 
   <script>
-    // —— CONFIG: set your backend URL here! —— 
-    const SERVER_URL = 'https://dc0f-96-234-46-32.ngrok-free.app';
+    const SERVER_URL = 'https://dc0f-96-234-46-32.ngrok-free.app'; // ← your backend URL
 
-    let piUserId, piUsername, piToken;
-    // 1) Pi Auth
-    Pi.ready(() => {
-      Pi.login().then(token => {
-        piToken = token;
+    let piToken, piUserId, piUsername;
+
+    // 1) On load: try getUserProfile → if fails, login → then getUserProfile
+    Pi.ready().then(() => {
+      return Pi.getUserProfile();
+    }).catch(() => {
+      return Pi.login().then(tok => {
+        piToken = tok;
         return Pi.getUserProfile();
-      }).then(profile => {
-        piUserId   = profile.player_id;
-        piUsername = profile.username;
-        document.getElementById('startBtn').disabled = false;
       });
+    }).then(profile => {
+      piUserId   = profile.player_id;
+      piUsername = profile.username;
+      // if token not set yet, grab it
+      if (!piToken) Pi.login().then(t => piToken = t);
+      document.getElementById('startBtn').disabled = false;
+    }).catch(err => {
+      console.error('Pi Auth error', err);
+      alert('Unable to authenticate with Pi.');
     });
 
-    // Phaser vars
+    // 2) Phaser globals
     const LANES = [];
     let gameStarted=false, gameOver=false, gamePaused=false;
     let direction=1, angle=0, radius=100, speed=3, maxSpeed=6;
@@ -212,9 +223,19 @@
       physics: { default:'arcade', arcade:{ debug:false } },
       scene: { preload, create, update }
     };
-    new Phaser.Game(config);
+    let gameInstance;
+    function startGame() {
+      if (!gameInstance) gameInstance = new Phaser.Game(config);
+    }
 
-    function preload() {
+    // 3) Start button
+    document.getElementById('startBtn').onclick = ()=> {
+      document.getElementById('start-screen').style.display='none';
+      startGame();
+    };
+
+    // 4) Phaser scene
+    function preload(){
       this.load.audio('explode','assets/explode.wav');
       this.load.audio('move','assets/move.wav');
       this.load.audio('point','assets/point.wav');
@@ -223,37 +244,37 @@
       this.load.audio('pauseWhoosh','assets/pause_whoosh_subtle.wav');
     }
 
-    function create() {
+    function create(){
       const cam = this.cameras.main;
       const cx = cam.centerX, cy = cam.centerY;
-      LANES[0] = cy - radius; LANES[1] = cy; LANES[2] = cy + radius;
+      LANES[0]=cy-radius; LANES[1]=cy; LANES[2]=cy+radius;
 
-      // Textures…
-      this.make.graphics({ add:false })
+      // textures
+      this.make.graphics({add:false})
         .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
         .fillStyle(0xffffff,1).fillCircle(50,50,20)
         .generateTexture('orb',100,100).destroy();
-      this.make.graphics({ add:false })
+      this.make.graphics({add:false})
         .fillStyle(0x0D1B2A,1).fillRoundedRect(0,0,50,50,8)
         .generateTexture('obstacle',50,50).destroy();
-      this.make.graphics({ add:false })
+      this.make.graphics({add:false})
         .fillStyle(0xffffff,0.25).fillCircle(40,40,40)
         .generateTexture('pointGlow',80,80).destroy();
-      this.make.graphics({ add:false })
+      this.make.graphics({add:false})
         .fillStyle(0xffffff,1)
         .beginPath().moveTo(25,0).lineTo(50,25).lineTo(25,50).lineTo(0,25)
         .closePath().fillPath()
         .generateTexture('point',50,50).destroy();
 
-      // Orbit sprites
+      // orbit sprites
       circle1 = this.add.image(0,0,'orb'); this.physics.add.existing(circle1);
       circle1.body.setCircle(22.5,27.5,27.5);
       circle2 = this.add.image(0,0,'orb'); this.physics.add.existing(circle2);
       circle2.body.setCircle(22.5,27.5,27.5);
 
-      // Trail
+      // trail
       const trail = this.add.particles('orb');
-      [circle1,circle2].forEach(c => trail.createEmitter({
+      [circle1,circle2].forEach(c=>trail.createEmitter({
         follow:c, lifespan:300, speed:0,
         scale:{start:0.3,end:0}, alpha:{start:0.4,end:0},
         frequency:50, blendMode:'ADD'
@@ -264,13 +285,13 @@
 
       // HUD
       scoreText = this.add.text(16,16,'Score: 0',{
-        fontFamily:'Poppins',fontSize:'36px',
-        color:'#fff',stroke:'#000',strokeThickness:4
+        fontFamily:'Poppins', fontSize:'36px',
+        color:'#fff', stroke:'#000', strokeThickness:4
       }).setDepth(2).setVisible(false);
       highScore = Number(localStorage.getItem('tricky_high_score'))||0;
 
-      // Icons
-      const gfx = this.make.graphics({ add:false });
+      // icons
+      const gfx = this.make.graphics({add:false});
       // pauseIcon
       gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
          .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
@@ -290,8 +311,7 @@
          .fillStyle(0xffffff,1).fillRect(16,18,8,20)
          .beginPath().moveTo(24,18).lineTo(38,8).lineTo(38,52).lineTo(24,32)
          .closePath().fillPath()
-         .lineStyle(4,0xffffff,1)
-         .beginPath().moveTo(20,20).lineTo(44,44).strokePath()
+         .lineStyle(4,0xffffff,1).beginPath().moveTo(20,20).lineTo(44,44).strokePath()
          .beginPath().moveTo(44,20).lineTo(20,44).strokePath();
       gfx.generateTexture('muteOff',56,56);
 
@@ -299,11 +319,12 @@
                       .setInteractive().setDepth(3).setVisible(false);
       const muteIcon = this.add.image(cam.width-100,40,'muteOn')
                          .setInteractive().setDepth(3).setVisible(false);
+
       pauseOverlay = document.getElementById('pause-overlay');
 
       countdownText = this.add.text(cx,cy,'',{
-        fontFamily:'Poppins',fontSize:'96px',
-        color:'#fff',stroke:'#000',strokeThickness:6
+        fontFamily:'Poppins', fontSize:'96px',
+        color:'#fff', stroke:'#000', strokeThickness:6
       }).setOrigin(0.5).setDepth(5).setVisible(false);
 
       // SFX
@@ -314,7 +335,7 @@
       sfx.uiClick    = this.sound.add('uiClick');
       sfx.pauseWhoosh= this.sound.add('pauseWhoosh');
 
-      // Mute toggle
+      // mute toggle
       muteIcon.on('pointerdown', ()=>{
         isMuted = !isMuted;
         this.sound.mute = isMuted;
@@ -322,7 +343,7 @@
         if (!isMuted) sfx.uiClick.play();
       });
 
-      // Pause toggle
+      // pause/play toggle
       pauseIcon.on('pointerdown', (_,x,y,e)=>{
         e.stopPropagation();
         if (!gameStarted||gameOver) return;
@@ -338,7 +359,7 @@
           countdownText.setText(cnt).setVisible(true);
           this.time.addEvent({
             delay:1000, repeat:2,
-            callback: ()=> {
+            callback: ()=>{
               cnt--;
               if (cnt>0) countdownText.setText(cnt);
               else {
@@ -353,7 +374,7 @@
         }
       });
 
-      // Rotate tap
+      // rotate tap
       this.input.on('pointerdown', ()=>{
         if (gameStarted && !gameOver && !gamePaused) {
           direction *= -1;
@@ -366,13 +387,13 @@
         }
       });
 
-      // Collisions
+      // collisions
       this.physics.add.overlap(circle1, obstacles, triggerGameOver, null, this);
       this.physics.add.overlap(circle2, obstacles, triggerGameOver, null, this);
       this.physics.add.overlap(circle1, points,    collectPoint,    null, this);
       this.physics.add.overlap(circle2, points,    collectPoint,    null, this);
 
-      // Speed ramp
+      // speed ramp
       this.time.addEvent({
         delay:1000, loop:true,
         callback: ()=>{
@@ -383,39 +404,26 @@
         }
       });
 
-      // Spawn scheduler
+      // spawn scheduler
       const scene = this;
-      function getSpawnInterval() {
+      function getSpawnInterval(){
         const t = Phaser.Math.Clamp((speed-baseSpeed)/(maxSpeed-baseSpeed),0,1);
         return Phaser.Math.Linear(1500,500,t);
       }
-      function scheduleSpawn() {
+      function scheduleSpawn(){
         scene.time.delayedCall(getSpawnInterval(), ()=>{
           if (gameStarted && !gameOver && !gamePaused) spawnObjects.call(scene);
           scheduleSpawn();
         }, [], scene);
       }
 
-      // START button
+      // hook start inside create (after auth)
       document.getElementById('startBtn').addEventListener('click', ()=>{
-        sfx.uiClick.play();
-        document.getElementById('start-screen').style.display='none';
-        gameStarted = true;
-        document.querySelector('canvas').style.visibility='visible';
-        scoreText.setVisible(true);
-        pauseIcon.setVisible(true);
-        muteIcon.setVisible(true);
-        scheduleSpawn();
-      });
-
-      // RESTART
-      document.getElementById('game-over-screen').addEventListener('pointerdown', ()=>{
-        sfx.uiClick.play();
-        location.reload();
+        // hidden above before create—no action here
       });
     }
 
-    function update() {
+    function update(){
       if (!gameStarted || gameOver || gamePaused) return;
       angle += 0.05 * direction;
       const o1 = Phaser.Math.Vector2.RIGHT.clone().rotate(angle).scale(radius);
@@ -426,10 +434,10 @@
       points.children.iterate(p=>p.x-=speed);
     }
 
-    function spawnObjects() {
+    function spawnObjects(){
       const y = Phaser.Math.RND.pick(LANES);
       const fromLeft = Phaser.Math.Between(0,1)===0;
-      const x = fromLeft ? -50 : this.cameras.main.width+50;
+      const x = fromLeft ? -50 : this.cameras.main.width + 50;
       const vx = (fromLeft?speed:-speed)*60;
       if (Phaser.Math.Between(1,100)<=35) {
         this.add.image(x,y,'pointGlow').setDepth(1).setBlendMode('ADD');
@@ -443,14 +451,16 @@
       }
     }
 
-    function triggerGameOver() {
+    function triggerGameOver(){
       if (gameOver) return;
       gameOver = true;
       [circle1,circle2].forEach(c=>{
         const px=c.x, py=c.y; c.destroy();
         this.add.particles('orb').createEmitter({
-          x:px, y:py, speed:{min:150,max:350},
-          angle:{min:0,max:360}, scale:{start:0.8,end:0},
+          x:px, y:py,
+          speed:{min:150,max:350},
+          angle:{min:0,max:360},
+          scale:{start:0.8,end:0},
           lifespan:500, blendMode:'ADD', quantity:8
         });
       });
@@ -465,8 +475,9 @@
         }
         document.getElementById('bestScore').innerText = highScore;
         document.getElementById('game-over-screen').style.display = 'flex';
+        localStorage.setItem('tricky_high_score', highScore);
 
-        // Submit + fetch leaderboard
+        // submit & fetch leaderboard
         fetch(`${SERVER_URL}/api/submit`, {
           method:'POST',
           headers:{
@@ -478,23 +489,22 @@
             username: piUsername,
             score
           })
-        }).then(()=> {
-          return fetch(`${SERVER_URL}/api/leaderboard`);
-        }).then(r=>r.json()).then(list=>{
-          const ol = document.getElementById('lb-list');
-          ol.innerHTML = '';
-          list.forEach(item=>{
-            const li = document.createElement('li');
-            li.textContent = `${item.username}: ${item.score}`;
-            ol.appendChild(li);
+        }).then(()=> fetch(`${SERVER_URL}/api/leaderboard`))
+          .then(r=>r.json())
+          .then(list=>{
+            const ol = document.getElementById('lb-list');
+            ol.innerHTML = '';
+            list.forEach(item=>{
+              const li = document.createElement('li');
+              li.textContent = `${item.username}: ${item.score}`;
+              ol.appendChild(li);
+            });
+            document.getElementById('leaderboard').style.display = 'block';
           });
-          document.getElementById('leaderboard').style.display = 'block';
-        });
-        localStorage.setItem('tricky_high_score', highScore);
       });
     }
 
-    function collectPoint(_,pt) {
+    function collectPoint(_,pt){
       pt.destroy();
       score++;
       sfx.point.play();
@@ -506,7 +516,7 @@
       });
     }
 
-    document.getElementById('lb-close').onclick = ()=> {
+    document.getElementById('lb-close').onclick = ()=>{
       document.getElementById('leaderboard').style.display = 'none';
     };
   </script>
