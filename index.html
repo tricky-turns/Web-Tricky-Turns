@@ -24,12 +24,10 @@
     }
     canvas { display:block; margin:0 auto; visibility:hidden; z-index:1; }
 
-    /* —— Pi Auth & User Display —— */
+    /* —— Pi Auth & User Display on Home Screen —— */
     #user-info {
-      position:absolute; top:10px; left:10px; z-index:5;
-      color:#fff; font-size:1rem;
       display:flex; align-items:center; gap:0.5rem;
-      text-shadow:0 0 4px #000;
+      color:#fff; font-size:1rem; text-shadow:0 0 4px #000;
     }
     #user-info button {
       background:rgba(255,255,255,0.8);
@@ -152,22 +150,23 @@
   </style>
 </head>
 <body>
-  <!-- Pi Auth / User Display -->
-  <div id="user-info">
-    <span>User: <strong id="username">Guest</strong></span>
-    <button id="loginBtn">Login</button>
-  </div>
-
   <div class="bg-cloud one"></div>
   <div class="bg-cloud two"></div>
   <div class="bg-cloud three"></div>
   <div class="bg-cloud four"></div>
 
   <div id="start-screen">
+    <!-- User info & login on home screen -->
+    <div id="user-info">
+      User: <strong id="username">Guest</strong>
+      <button id="loginBtn">Login</button>
+    </div>
+
     <div class="start-cloud one"></div>
     <div class="start-cloud two"></div>
     <div class="start-cloud three"></div>
     <div class="start-cloud four"></div>
+
     <h1>TRICKY<br/>TURNS</h1>
     <button class="start-button" id="startBtn">TAP TO START</button>
     <div class="orbit">
@@ -198,23 +197,29 @@
   <script>
     // — Pi Authentication setup —
     const scopes = ['username'];
-    let piAccessToken = null;
     let piUsername = 'Guest';
 
     function onIncompletePaymentFound(payment) {
       console.log('Incomplete payment found:', payment);
     }
 
-    document.getElementById('loginBtn').addEventListener('click', () => {
-      Pi.authenticate(scopes, onIncompletePaymentFound)
-        .then(auth => {
-          piAccessToken = auth.accessToken;
-          piUsername = auth.user.username;
-          document.getElementById('username').innerText = piUsername;
-          document.getElementById('loginBtn').style.display = 'none';
-        })
-        .catch(err => console.error('Pi login failed:', err));
-    });
+    async function initAuth() {
+      try {
+        const auth = await Pi.authenticate(scopes, onIncompletePaymentFound);
+        piUsername = auth.user.username;
+        document.getElementById('username').innerText = piUsername;
+        document.getElementById('loginBtn').style.display = 'none';
+      } catch (err) {
+        // not signed in yet
+        document.getElementById('loginBtn').style.display = 'inline-block';
+      }
+    }
+
+    // Attempt silent auth on load
+    initAuth();
+
+    // If needed, clicking loginBtn prompts auth
+    document.getElementById('loginBtn').addEventListener('click', initAuth);
 
     // — Game & Leaderboard logic —
     const LANES = [];
@@ -247,6 +252,7 @@
       const cx=cam.centerX, cy=cam.centerY;
       LANES[0]=cy-radius; LANES[1]=cy; LANES[2]=cy+radius;
 
+      // generate textures
       this.make.graphics({add:false})
         .fillStyle(0xffffff,0.04).fillCircle(50,50,30)
         .fillStyle(0xffffff,1).fillCircle(50,50,20)
@@ -263,11 +269,13 @@
         .closePath().fillPath()
         .generateTexture('point',50,50).destroy();
 
+      // orbit sprites
       circle1=this.add.image(0,0,'orb'); this.physics.add.existing(circle1);
       circle1.body.setCircle(22.5,27.5,27.5);
       circle2=this.add.image(0,0,'orb'); this.physics.add.existing(circle2);
       circle2.body.setCircle(22.5,27.5,27.5);
 
+      // trail
       const trail=this.add.particles('orb');
       [circle1,circle2].forEach(c=>trail.createEmitter({
         follow:c, lifespan:300, speed:0,
@@ -278,12 +286,14 @@
       obstacles=this.physics.add.group();
       points=this.physics.add.group();
 
+      // HUD
       scoreText=this.add.text(16,16,'Score: 0',{
         fontFamily:'Poppins', fontSize:'36px',
         color:'#fff', stroke:'#000', strokeThickness:4
       }).setDepth(2).setVisible(false);
       highScore=Number(localStorage.getItem('tricky_high_score'))||0;
 
+      // generate UI icons
       const gfx=this.make.graphics({add:false});
       gfx.fillStyle(0x000000,0.3).fillRoundedRect(0,0,56,56,12)
          .fillStyle(0xffffff,1).fillRoundedRect(14,12,8,32,4).fillRoundedRect(34,12,8,32,4);
@@ -313,6 +323,7 @@
         color:'#fff', stroke:'#000', strokeThickness:6
       }).setOrigin(0.5).setDepth(5).setVisible(false);
 
+      // SFX
       sfx.explode    = this.sound.add('explode');
       sfx.move       = this.sound.add('move');
       sfx.point      = this.sound.add('point');
@@ -320,6 +331,7 @@
       sfx.uiClick    = this.sound.add('uiClick');
       sfx.pauseWhoosh= this.sound.add('pauseWhoosh');
 
+      // mute toggle
       muteIcon.on('pointerdown',()=>{
         isMuted=!isMuted;
         this.sound.mute=isMuted;
@@ -327,6 +339,7 @@
         if(!isMuted) sfx.uiClick.play();
       });
 
+      // pause/play toggle
       pauseIcon.on('pointerdown',(_,x,y,e)=>{
         e.stopPropagation();
         if(!gameStarted||gameOver) return;
@@ -357,6 +370,7 @@
         }
       });
 
+      // rotate on tap
       this.input.on('pointerdown',()=>{
         if(gameStarted&&!gameOver&&!gamePaused){
           direction*=-1;
@@ -369,11 +383,13 @@
         }
       });
 
+      // collisions
       this.physics.add.overlap(circle1,obstacles,triggerGameOver,null,this);
       this.physics.add.overlap(circle2,obstacles,triggerGameOver,null,this);
       this.physics.add.overlap(circle1,points,collectPoint,null,this);
       this.physics.add.overlap(circle2,points,collectPoint,null,this);
 
+      // speed ramp
       this.time.addEvent({
         delay:1000, loop:true,
         callback: ()=>{
@@ -384,6 +400,7 @@
         }
       });
 
+      // spawn scheduler
       const scene=this;
       function getSpawnInterval(){
         const t=Phaser.Math.Clamp((speed-3)/(maxSpeed-3),0,1);
@@ -396,8 +413,10 @@
         },[],scene);
       }
 
+      // START
       document.getElementById('startBtn').addEventListener('click',()=>{
         sfx.uiClick.play();
+        document.getElementById('user-info').style.display='none';
         document.getElementById('start-screen').style.display='none';
         gameStarted=true;
         document.querySelector('canvas').style.visibility='visible';
@@ -407,6 +426,7 @@
         scheduleSpawn();
       });
 
+      // RESTART
       document.getElementById('game-over-screen').addEventListener('pointerdown',()=>{
         location.reload();
       });
@@ -466,14 +486,14 @@
         localStorage.setItem('tricky_high_score',highScore);
 
         // POST score
-        fetch('https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard', {
+        fetch(' https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard', {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
           body: JSON.stringify({ username: piUsername, score: highScore })
         }).catch(console.error);
 
         // GET top-10
-        fetch('https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard?top=10')
+        fetch(' https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard?top=10')
           .then(r => r.json())
           .then(data => {
             const list = document.getElementById('leaderboardEntries');
