@@ -19,11 +19,17 @@
     canvas { display:block; margin:0 auto; visibility:hidden; z-index:1; }
 
     .bg-cloud, .start-cloud {
-      position:absolute;
-      background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 60'><path d='M20,35 C20,25 35,20 45,25 C50,15 65,15 70,25 C85,25 90,35 80,45 C90,45 95,55 85,60 C75,65 55,60 50,50 C40,60 25,60 20,50 C10,50 5,40 20,35 Z' fill='%23FFFFFF'/></svg>");
-      background-size:contain; background-repeat:no-repeat;
-      filter:blur(6px); opacity:.8; animation:drift linear infinite;
-    }
+      position: absolute;
+      background-image: url("data:image/svg+xml;utf8,<svg…");
+      background-size: contain;
+      background-repeat: no-repeat;
+      filter: blur(6px);
+      opacity: .8;
+      animation: drift linear infinite;
+      /* ← add this: */
+      pointer-events: none;
+}
+
     .bg-cloud.one, .start-cloud.one   { width:260px; height:90px;  top:12%; left:10%;   animation-duration:40s; }
     .bg-cloud.two, .start-cloud.two   { width:200px; height:70px;  top:8%;  right:12%;  animation-duration:50s; }
     .bg-cloud.three, .start-cloud.three { width:300px; height:100px; top:48%; left:18%;  animation-duration:45s; }
