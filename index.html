@@ -17,7 +17,10 @@
     html, body { width:100%; height:100%; overflow:hidden }
     body { font-family:'Poppins',sans-serif; background: linear-gradient(to bottom, #3199E4 0%, #58C0F2 100%); position:relative; }
     canvas { display:block; margin:0 auto; visibility:hidden; z-index:1; }
-
+    #startBtn {
+      position: relative;
+      z-index: 10;
+    }
     .bg-cloud, .start-cloud {
       position: absolute;
       background-image: url("data:image/svg+xml;utf8,<svg…");
@@ -53,6 +56,7 @@
       box-shadow:0 8px 24px rgba(0,0,0,0.2); cursor:pointer;
     }
     .start-button:hover { background:#318EE6; box-shadow:0 10px 28px rgba(0,0,0,0.25); }
+    
 
     .orbit { position:relative; width:240px; height:240px; }
     .ring {
