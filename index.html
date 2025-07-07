@@ -54,26 +54,26 @@
 
     #start-screen {
       position:absolute; inset:0;
-      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7rem;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4rem;
       z-index:2; cursor:pointer;
     }
     #start-screen h1 {
-      color:#fff; font-size:6rem; font-weight:700;
+      color:#fff; font-size:5rem; font-weight:700;
       text-transform:uppercase; letter-spacing:.1rem;
       text-align:center; line-height:1.1;
     }
     .start-button {
       background:#3EAFF6; color:#fff;
-      font-size:1.6rem; font-weight:700;
-      padding:1rem 3rem; border:none; border-radius:2rem;
+      font-size:1.4rem; font-weight:700;
+      padding:0.8rem 2.5rem; border:none; border-radius:2rem;
       box-shadow:0 8px 24px rgba(0,0,0,0.2); cursor:pointer;
+      margin-top:0.5rem;
     }
     .start-button:hover {
       background:#318EE6; box-shadow:0 10px 28px rgba(0,0,0,0.25);
     }
     @media (max-width:600px) {
-      #start-screen { gap:4rem; }
-      #start-screen h1 { font-size:4rem; }
+      #start-screen h1 { font-size:3rem; }
       .orbit { width:180px; height:180px; }
       .ring  { border-width:6px; }
       .circle{ width:45px; height:45px; }
@@ -111,7 +111,7 @@
       font-family:'Poppins',sans-serif; color:#FF4A4A; font-size:6rem; font-weight:700;
       text-transform:uppercase; letter-spacing:.1rem; -webkit-text-stroke:1px #000;
     }
-    .result-wrapper { position:relative; width:360px; height:360px; }
+    .result-wrapper { position:relative; width:300px; height:300px; }
     .orb-bg {
       position:absolute; inset:0; border-radius:50%;
       background:radial-gradient(circle at center, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0) 70%);
@@ -119,34 +119,56 @@
     }
     .results {
       position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      color:#fff; font-size:2.8rem; font-weight:700;
+      color:#fff; font-size:2.4rem; font-weight:700;
       text-transform:uppercase; letter-spacing:.15rem;
       -webkit-text-stroke:2px #000; text-align:center; line-height:1.3;
     }
     .restart {
       font-family:'Poppins',sans-serif; color:rgba(255,255,255,0.8);
-      font-size:2.4rem; font-weight:700;
+      font-size:2rem; font-weight:700;
       text-transform:uppercase; letter-spacing:.1rem;
       -webkit-text-stroke:1px #000;
     }
     @media (max-width:600px) {
-      #game-over-screen { gap:1rem; }
       #game-over-screen h2 { font-size:4rem; }
-      .result-wrapper { width:240px; height:240px; }
-      .results        { font-size:2rem; }
-      .restart        { font-size:1.8rem; }
+      .results        { font-size:1.8rem; }
+      .restart        { font-size:1.6rem; }
     }
 
-    /* —— Leaderboard —— */
+    /* —— Leaderboard in Game Over —— */
     #leaderboard {
       margin-top:1rem;
       background:rgba(0,0,0,0.6);
       padding:1rem; border-radius:0.5rem;
-      max-height:200px; overflow-y:auto;
+      max-height:300px; overflow-y:auto;
       color:#fff; font-size:1rem;
       text-align:left; line-height:1.4;
+      width:80%; max-width:400px;
     }
     #leaderboard h3 { margin-bottom:0.5rem; }
+
+    /* —— Full-Screen Leaderboard Overlay —— */
+    #leaderboard-screen {
+      position:absolute; inset:0;
+      background:rgba(0,0,0,0.9);
+      display:none; flex-direction:column;
+      align-items:center; overflow-y:auto;
+      padding:2rem; z-index:5;
+    }
+    #leaderboard-screen h2 {
+      color:#fff; margin-bottom:1rem;
+    }
+    #leaderboard-screen button {
+      position:absolute; top:1rem; right:1rem;
+      background:#FF4A4A; color:#fff;
+      border:none; border-radius:0.3rem;
+      padding:0.5rem 1rem; font-weight:700;
+      cursor:pointer;
+    }
+    #leaderboard-screen ol {
+      color:#fff; list-style-position:inside;
+      width:100%; max-width:400px;
+    }
   </style>
 </head>
 <body>
@@ -169,11 +191,19 @@
 
     <h1>TRICKY<br/>TURNS</h1>
     <button class="start-button" id="startBtn">TAP TO START</button>
+    <button class="start-button" id="viewLeaderboardBtn" style="background:#FF4A4A;">VIEW LEADERBOARD</button>
     <div class="orbit">
       <div class="ring"></div>
       <div class="circle top"></div>
       <div class="circle bottom"></div>
     </div>
+  </div>
+
+  <!-- Full-screen Leaderboard Overlay -->
+  <div id="leaderboard-screen">
+    <button id="closeLeaderboardBtn">Close</button>
+    <h2>Top 100 Leaderboard</h2>
+    <ol id="leaderboardEntriesHome"></ol>
   </div>
 
   <div id="pause-overlay"><div class="paused-text">Paused</div></div>
@@ -189,15 +219,17 @@
     </div>
     <div class="restart">Tap to Restart</div>
     <div id="leaderboard" style="display:none;">
-      <h3>Top 10 Leaderboard</h3>
+      <h3>Top 100 Leaderboard</h3>
       <ol id="leaderboardEntries"></ol>
     </div>
   </div>
 
   <script>
-    // — Pi Authentication setup —
+    // —— Pi Authentication setup ——
     const scopes = ['username'];
     let piUsername = 'Guest';
+    let highScore = 0;
+    let useLocalHighScore = true;
 
     function onIncompletePaymentFound(payment) {
       console.log('Incomplete payment found:', payment);
@@ -209,23 +241,46 @@
         piUsername = auth.user.username;
         document.getElementById('username').innerText = piUsername;
         document.getElementById('loginBtn').style.display = 'none';
-      } catch (err) {
-        // not signed in yet
-        document.getElementById('loginBtn').style.display = 'inline-block';
+        useLocalHighScore = false;
+        // fetch user’s server high score
+        const data = await fetch('127.0.0.1:3000/api/leaderboard?top=100').then(r=>r.json());
+        const entry = data.find(e=>e.username === piUsername);
+        highScore = entry ? entry.score : 0;
+        // persist locally as well
+        localStorage.setItem('tricky_high_score', highScore);
+      } catch (e) {
+        console.log('Not signed in:', e);
       }
     }
 
     // Attempt silent auth on load
     initAuth();
 
-    // If needed, clicking loginBtn prompts auth
+    // If not signed in, show login prompt
     document.getElementById('loginBtn').addEventListener('click', initAuth);
 
-    // — Game & Leaderboard logic —
+    // —— Show Home Leaderboard ——
+    async function showHomeLeaderboard() {
+      const list = document.getElementById('leaderboardEntriesHome');
+      list.innerHTML = '';
+      const data = await fetch('https://6b45d6866e97.ngrok-free.app/api/leaderboard?top=100').then(r=>r.json());
+      data.forEach(e=>{
+        const li = document.createElement('li');
+        li.textContent = `${e.username}: ${e.score}`;
+        list.appendChild(li);
+      });
+      document.getElementById('leaderboard-screen').style.display = 'flex';
+    }
+    document.getElementById('viewLeaderboardBtn').addEventListener('click', showHomeLeaderboard);
+    document.getElementById('closeLeaderboardBtn').addEventListener('click', ()=>{
+      document.getElementById('leaderboard-screen').style.display = 'none';
+    });
+
+    // —— Game & Leaderboard logic ——
     const LANES = [];
     let gameStarted=false, gameOver=false, gamePaused=false;
     let direction=1, angle=0, radius=100, speed=3, maxSpeed=6;
-    let circle1,circle2,obstacles,points,score=0,highScore=0;
+    let circle1,circle2,obstacles,points,score=0;
     let scoreText,pauseIcon,pauseOverlay,countdownText;
     let sfx={}, isMuted=false;
 
@@ -291,7 +346,11 @@
         fontFamily:'Poppins', fontSize:'36px',
         color:'#fff', stroke:'#000', strokeThickness:4
       }).setDepth(2).setVisible(false);
-      highScore=Number(localStorage.getItem('tricky_high_score'))||0;
+
+      // initialize highScore from localStorage if using guest
+      if (useLocalHighScore) {
+        highScore = Number(localStorage.getItem('tricky_high_score')) || 0;
+      }
 
       // generate UI icons
       const gfx=this.make.graphics({add:false});
@@ -417,6 +476,7 @@
       document.getElementById('startBtn').addEventListener('click',()=>{
         sfx.uiClick.play();
         document.getElementById('user-info').style.display='none';
+        document.getElementById('viewLeaderboardBtn').style.display='none';
         document.getElementById('start-screen').style.display='none';
         gameStarted=true;
         document.querySelector('canvas').style.visibility='visible';
@@ -478,34 +538,34 @@
         this.physics.pause();
         document.querySelector('canvas').style.visibility='hidden';
         document.getElementById('finalScore').innerText=score;
-        if(score>highScore){
-          highScore=score;
+        if(score > highScore){
+          highScore = score;
           sfx.newBest.play();
         }
-        document.getElementById('bestScore').innerText=highScore;
-        localStorage.setItem('tricky_high_score',highScore);
+        document.getElementById('bestScore').innerText = highScore;
+        if(useLocalHighScore) {
+          localStorage.setItem('tricky_high_score', highScore);
+        }
 
         // POST score
-        fetch(' https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard', {
+        fetch('https://6b45d6866e97.ngrok-free.app/api/leaderboard', {
           method:'POST',
           headers:{ 'Content-Type':'application/json' },
           body: JSON.stringify({ username: piUsername, score: highScore })
         }).catch(console.error);
 
-        // GET top-10
-        fetch(' https://dc0f-96-234-46-32.ngrok-free.app/api/leaderboard?top=10')
-          .then(r => r.json())
-          .then(data => {
-            const list = document.getElementById('leaderboardEntries');
+        // GET top-100 for game-over screen
+        fetch('https://6b45d6866e97.ngrok-free.app/api/leaderboard?top=100')
+          .then(r=>r.json()).then(data=>{
+            const list=document.getElementById('leaderboardEntries');
             list.innerHTML = '';
-            data.forEach(entry => {
+            data.forEach(e=>{
               const li = document.createElement('li');
-              li.textContent = `${entry.username}: ${entry.score}`;
+              li.textContent = `${e.username}: ${e.score}`;
               list.appendChild(li);
             });
             document.getElementById('leaderboard').style.display = 'block';
-          })
-          .catch(console.error);
+          }).catch(console.error);
 
         document.getElementById('game-over-screen').style.display='flex';
       });
